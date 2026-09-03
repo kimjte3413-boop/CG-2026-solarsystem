@@ -16,25 +16,135 @@
 
     if (!gl) {
       alert('이 브라우저에서는 WebGL2를 사용할 수 없습니다.');
+      throw new Error('WebGL2를 초기화할 수 없습니다.');
     }
+
+    const vertexShaderSource = `#version 300 es
+      in vec2 a_position;
+      uniform float u_pointSize;
+      uniform vec2 u_resolution;
+
+      void main() {
+        float scale = min(u_resolution.x, u_resolution.y);
+        vec2 position = a_position * scale / u_resolution;
+        gl_Position = vec4(position, 0.0, 1.0);
+        gl_PointSize = u_pointSize * min(u_resolution.x, u_resolution.y);
+      }
+    `;
+
+    const fragmentShaderSource = `#version 300 es
+      precision highp float;
+      uniform vec3 u_color;
+      uniform float u_sunLight;
+      out vec4 outColor;
+
+      void main() {
+        vec2 centered = gl_PointCoord * 2.0 - 1.0;
+        float distanceFromCenter = dot(centered, centered);
+        if (distanceFromCenter > 1.0) {
+          discard;
+        }
+
+        // A soft highlight gives each point a simple spherical appearance.
+        float light = 0.6 + 0.4 * sqrt(1.0 - distanceFromCenter);
+        light *= u_sunLight;
+        outColor = vec4(u_color * light, 1.0);
+      }
+    `;
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const message = gl.getShaderInfoLog(shader);
+        gl.deleteShader(shader);
+        throw new Error(`셰이더 컴파일 실패: ${message}`);
+      }
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER, vertexShaderSource));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fragmentShaderSource));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(`WebGL 프로그램 연결 실패: ${gl.getProgramInfoLog(program)}`);
+    }
+
+    const positionLocation = gl.getAttribLocation(program, 'a_position');
+    const pointSizeLocation = gl.getUniformLocation(program, 'u_pointSize');
+    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+    const colorLocation = gl.getUniformLocation(program, 'u_color');
+    const sunLightLocation = gl.getUniformLocation(program, 'u_sunLight');
+
+    const orbitRadius = 0.58;
+    const orbitVertexCount = 160;
+    const orbitVertices = new Float32Array(orbitVertexCount * 2);
+    for (let i = 0; i < orbitVertexCount; i += 1) {
+      const angle = (i / orbitVertexCount) * Math.PI * 2;
+      orbitVertices[i * 2] = Math.cos(angle) * orbitRadius;
+      orbitVertices[i * 2 + 1] = Math.sin(angle) * orbitRadius;
+    }
+
+    const orbitBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, orbitBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, orbitVertices, gl.STATIC_DRAW);
+
+    const pointBuffer = gl.createBuffer();
+    const orbitSpeed = 0.7;
 
     function resize() {
       // CSS 픽셀과 실제 픽셀을 맞춰 준다 (고해상도 화면 대응)
       const dpr = window.devicePixelRatio || 1;
-      canvas.width  = Math.floor(canvas.clientWidth  * dpr);
-      canvas.height = Math.floor(canvas.clientHeight * dpr);
-      gl.viewport(0, 0, canvas.width, canvas.height);
+      const width = Math.floor(canvas.clientWidth * dpr);
+      const height = Math.floor(canvas.clientHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
     }
 
-    function draw() {
+    function draw(time) {
       resize();
-      gl.clearColor(0.08, 0.08, 0.14, 1.0);  // R, G, B, A — 각 값은 0~1
+      gl.clearColor(0.08, 0.08, 0.14, 1.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(program);
+      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, orbitBuffer);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform3f(colorLocation, 0.55, 0.18, 0.85);
+      gl.uniform1f(pointSizeLocation, 0.001);
+      gl.uniform1f(sunLightLocation, 1.0);
+      gl.drawArrays(gl.LINE_LOOP, 0, orbitVertexCount);
+
+      const angle = (time * 0.001 * orbitSpeed) % (Math.PI * 2);
+      const planetVertices = new Float32Array([
+        0, 0,
+        Math.cos(angle) * orbitRadius, Math.sin(angle) * orbitRadius
+      ]);
+      gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, planetVertices, gl.DYNAMIC_DRAW);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      gl.uniform3f(colorLocation, 1.0, 0.82, 0.05);
+      gl.uniform1f(pointSizeLocation, 0.18);
+      gl.uniform1f(sunLightLocation, 1.1);
+      gl.drawArrays(gl.POINTS, 0, 1);
+
+      gl.uniform3f(colorLocation, 0.1, 0.8, 0.25);
+      gl.uniform1f(pointSizeLocation, 0.075);
+      gl.uniform1f(sunLightLocation, 1.0);
+      gl.drawArrays(gl.POINTS, 1, 1);
+
       requestAnimationFrame(draw);
     }
 
-    draw();
+    requestAnimationFrame(draw);
   </script>
 </body>
 </html>
-
