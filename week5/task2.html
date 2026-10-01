@@ -15,6 +15,10 @@
   .light-key { display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:5px;background:#24344a;color:#fff;font-weight:800; }
   .warm { color:#ffad68; } .cool { color:#73c9ff; } .spot { color:#f4e6a0; }
   #controls .legend { color:#aebbd0;font-size:11px; }
+  #gammaLabel { border-top:1px solid #34445b;padding-top:8px; }
+  #flightButton { width:100%;margin-top:6px;padding:9px 12px;border:1px solid #efad68;border-radius:7px;background:#8d4f24;color:#fff;font:700 13px system-ui,sans-serif;cursor:pointer; }
+  #flightButton:disabled { opacity:.7;cursor:wait; }
+  #flightStatus { min-height:1.5em; }
   #hint { margin-top:8px !important;font-family:ui-monospace,Menlo,Consolas,monospace; }
   @media(max-width:600px){#controls{max-height:48vh;overflow:auto;padding:9px 11px}#controls h1{font-size:13px}}
 </style>
@@ -27,22 +31,17 @@
   <label><input id="light1On" type="checkbox" checked><span class="light-key warm">1</span><span><strong class="warm">붉은 태양</strong> · 움직이는 point</span></label>
   <label><input id="light2On" type="checkbox" checked><span class="light-key cool">2</span><span><strong class="cool">먼 항성</strong> · 푸른 directional</span></label>
   <label><input id="light3On" type="checkbox" checked><span class="light-key spot">3</span><span><strong class="spot">착륙 서치라이트</strong> · spot</span></label>
-  <p id="hint">키보드 1·2·3 또는 체크 상자로 각 광원을 켜고 끄세요.<br>드래그 = 시점 회전 · 휠 = 확대/축소</p>
+  <label id="gammaLabel"><input id="gammaOn" type="checkbox" checked><span>감마 보정 적용 (pow 1/2.2)</span></label>
+  <button id="flightButton" type="button">착륙 시작</button>
+  <p id="flightStatus" role="status" aria-live="polite">탐사선이 행성 위 y축 방향에서 대기 중입니다.</p>
+  <p id="hint">키보드 1·2·3 또는 체크 상자로 각 광원을 켜고 끄세요.<br>감마 체크를 끄고 전후 색을 비교하세요.<br>드래그 = 시점 회전 · 휠 = 확대/축소</p>
 </section>
 
 <script>
 /* ============================================================================
-   5주차 실습 1 — 출발점 파일
-
-   3주차·4주차에서 만든 것이 이미 들어 있습니다.
-     · 바닥 + 행성 + 달이 있는 3차원 장면
-     · 모델 / 뷰 / 투영 행렬
-     · 마우스로 도는 카메라
-
-   그런데 아직 **빛이 없습니다.** 모든 면이 같은 색이라 공이 납작한 원으로 보입니다.
-   강의 자료의 「실습 1」 을 보며 단계별로 조명을 넣어 나가세요.
-
-   고칠 곳에는 모두  ★ 단계 N  표시가 붙어 있습니다.
+   5주차 실습 2 — 황혼의 탐사선
+   행성·달 장면에 point, directional, spot 조명을 더하고
+   y축을 따라 착륙과 이륙을 반복하는 탐사선을 애니메이션한다.
    ============================================================================ */
 'use strict';
 
@@ -84,6 +83,41 @@ function makePlane(size) {
     positions: new Float32Array([-s,0,-s,  s,0,-s,  s,0,s,  -s,0,s]),
     normals:   new Float32Array([ 0,1,0,   0,1,0,   0,1,0,   0,1,0 ]),
     indices:   new Uint16Array([0, 1, 2, 0, 2, 3]),
+  };
+}
+
+function makeLanderBody(seg) {
+  const profile = [
+    { y: -0.55, r: 0.025 },
+    { y: -0.34, r: 0.18 },
+    { y: 0.12, r: 0.22 },
+    { y: 0.31, r: 0.15 },
+    { y: 0.43, r: 0.10 },
+  ];
+  const positions = [], normals = [], indices = [];
+  for (let i = 0; i < profile.length; i++) {
+    const prev = profile[Math.max(0, i - 1)];
+    const next = profile[Math.min(profile.length - 1, i + 1)];
+    const slope = (next.r - prev.r) / (next.y - prev.y);
+    for (let j = 0; j <= seg; j++) {
+      const angle = 2 * Math.PI * j / seg;
+      const x = Math.cos(angle), z = Math.sin(angle);
+      const ny = -slope;
+      const nl = Math.hypot(x, ny, z);
+      positions.push(profile[i].r * x, profile[i].y, profile[i].r * z);
+      normals.push(x / nl, ny / nl, z / nl);
+    }
+  }
+  for (let i = 0; i < profile.length - 1; i++) {
+    for (let j = 0; j < seg; j++) {
+      const a = i * (seg + 1) + j, b = a + seg + 1;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    indices: new Uint16Array(indices),
   };
 }
 
@@ -136,6 +170,7 @@ uniform bool  uEmissive;              // 태양처럼 스스로 빛나는 물체
 uniform bool  uLight1On;
 uniform bool  uLight2On;
 uniform bool  uLight3On;
+uniform bool  uGammaOn;
 
 out vec4 fragColor;
 
@@ -177,7 +212,7 @@ vec3 shadeSpot(vec3 N, vec3 V, vec3 worldPos, vec3 lightPos,
 
 vec3 toneMap(vec3 color) {
   vec3 mapped = color / (color + vec3(1.0));
-  return pow(mapped, vec3(1.0 / 2.2));
+  return uGammaOn ? pow(mapped, vec3(1.0 / 2.2)) : mapped;
 }
 
 void main() {
@@ -223,6 +258,10 @@ const Mat4 = {
   rotateY: function (r) {
     const m = Mat4.identity(), c = Math.cos(r), s = Math.sin(r);
     m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m;
+  },
+  rotateZ: function (r) {
+    const m = Mat4.identity(), c = Math.cos(r), s = Math.sin(r);
+    m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m;
   },
   perspective: function (fovy, aspect, near, far) {
     const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
@@ -294,7 +333,7 @@ const program = createProgram(VS_SOURCE, FS_SOURCE);
 const U = {};
 ['uModel','uView','uProj','uNormalMat','uUseNormalMat','uBaseColor','uViewPos','uShininess','uEmissive',
  'uLight1Pos','uLight2Direction','uLight3Pos','uLight3Direction','uLight1Color','uLight2Color','uLight3Color',
- 'uLight1On','uLight2On','uLight3On'].forEach(function (n) {
+ 'uLight1On','uLight2On','uLight3On','uGammaOn'].forEach(function (n) {
   U[n] = gl.getUniformLocation(program, n);
 });
 
@@ -319,13 +358,14 @@ function createMesh(mesh) {
 
 const sphere = createMesh(makeSphere(32));
 const plane  = createMesh(makePlane(16));
+const landerBody = createMesh(makeLanderBody(20));
 
 gl.enable(gl.DEPTH_TEST);
 
 /* ══════════════════════════════════════════════════════════════════════════
    6. 마우스로 도는 카메라
    ══════════════════════════════════════════════════════════════════════════ */
-const cam = { yaw: 0.6, pitch: 0.42, dist: 11 };
+const cam = { yaw: 0.6, pitch: 0.42, dist: 12 };
 let dragging = false, lastX = 0, lastY = 0;
 
 canvas.addEventListener('pointerdown', function (e) {
@@ -356,6 +396,28 @@ const lightToggles = [
   document.querySelector('#light2On'),
   document.querySelector('#light3On'),
 ];
+const flightButton = document.querySelector('#flightButton');
+const flightStatus = document.querySelector('#flightStatus');
+const flight = {
+  state: 'waiting',
+  fromY: 6.0,
+  toY: 3.58,
+  startedAt: 0,
+  duration: 4200,
+};
+let landerY = flight.fromY;
+flightButton.addEventListener('click', function () {
+  if (flight.state === 'landing' || flight.state === 'takingOff') return;
+  flight.fromY = landerY;
+  flight.toY = flight.state === 'landed' ? 6.0 : 3.58;
+  flight.state = flight.state === 'landed' ? 'takingOff' : 'landing';
+  flight.startedAt = performance.now();
+  flightButton.disabled = true;
+  flightButton.textContent = flight.state === 'landing' ? '착륙 중…' : '이륙 중…';
+  flightStatus.textContent = flight.state === 'landing'
+    ? '탐사선이 y축을 따라 행성 표면으로 하강 중입니다.'
+    : '탐사선이 y축을 따라 행성에서 상승 중입니다.';
+});
 document.addEventListener('keydown', event => {
   if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
   const index = Number(event.key) - 1;
@@ -374,6 +436,30 @@ function draw(mesh, model, color, shininess, emissive) {
   gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
 }
 
+function drawLander(time) {
+  const root = Mat4.multiply(
+    Mat4.translate(0, landerY, 0),
+    Mat4.rotateY(time * 0.18)
+  );
+  function part(offset, scale, color, shininess, emissive, rotation) {
+    let model = Mat4.translate(offset[0], offset[1], offset[2]);
+    if (rotation) model = Mat4.multiply(model, rotation);
+    model = Mat4.multiply(model, Mat4.scale(scale[0], scale[1], scale[2]));
+    draw(sphere, Mat4.multiply(root, model), color, shininess, emissive);
+  }
+
+  draw(landerBody, root, [0.42, 0.52, 0.58], 48, false);
+  part([0, 0.25, 0], [0.12, 0.105, 0.12], [0.1, 0.72, 1.0], 24, true);
+  part([0, 0.08, 0], [0.48, 0.035, 0.24], [0.16, 0.34, 0.42], 18, false);
+  part([0, 0.11, 0], [0.64, 0.012, 0.035], [0.95, 0.56, 0.18], 12, true);
+  part([-0.31, -0.33, 0], [0.035, 0.27, 0.035], [0.72, 0.78, 0.82], 28, false, Mat4.rotateZ(0.25));
+  part([0.31, -0.33, 0], [0.035, 0.27, 0.035], [0.72, 0.78, 0.82], 28, false, Mat4.rotateZ(-0.25));
+  part([0, -0.34, -0.29], [0.035, 0.26, 0.035], [0.72, 0.78, 0.82], 28, false);
+  part([-0.39, -0.57, 0], [0.09, 0.035, 0.07], [0.95, 0.56, 0.18], 16, true);
+  part([0.39, -0.57, 0], [0.09, 0.035, 0.07], [0.95, 0.56, 0.18], 16, true);
+  part([0, -0.58, -0.36], [0.09, 0.035, 0.07], [0.95, 0.56, 0.18], 16, true);
+}
+
 function render() {
   const dpr = window.devicePixelRatio || 1;
   const w = Math.floor(canvas.clientWidth * dpr);
@@ -385,13 +471,26 @@ function render() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   const t = (performance.now() - startTime) / 1000;
+  if (flight.state === 'landing' || flight.state === 'takingOff') {
+    const progress = Math.min(1, (performance.now() - flight.startedAt) / flight.duration);
+    const eased = progress * progress * (3 - 2 * progress);
+    landerY = flight.fromY + (flight.toY - flight.fromY) * eased;
+    if (progress === 1) {
+      flight.state = flight.toY < flight.fromY ? 'landed' : 'waiting';
+      flightButton.disabled = false;
+      flightButton.textContent = flight.state === 'landed' ? '이륙' : '다시 착륙';
+      flightStatus.textContent = flight.state === 'landed'
+        ? '착륙 완료 — 탐사선이 행성 표면에 도착했습니다.'
+        : '이륙 완료 — 탐사선이 행성 위 대기 위치로 돌아왔습니다.';
+    }
+  }
 
   // 카메라
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
   const eye = [Math.sin(cam.yaw) * cp * cam.dist,
-               sp * cam.dist + 1.0,
+               sp * cam.dist + 2.0,
                Math.cos(cam.yaw) * cp * cam.dist];
-  const view = Mat4.lookAt(eye, [0, 1.0, 0], [0, 1, 0]);
+  const view = Mat4.lookAt(eye, [0, 2.0, 0], [0, 1, 0]);
   const proj = Mat4.perspective(Math.PI / 4, canvas.width / canvas.height, 0.1, 200);
 
   // 세 광원은 서로 다른 종류·색·역할을 가진다.
@@ -413,6 +512,7 @@ function render() {
   gl.uniform1i(U.uLight1On, lightToggles[0].checked ? 1 : 0);
   gl.uniform1i(U.uLight2On, lightToggles[1].checked ? 1 : 0);
   gl.uniform1i(U.uLight3On, lightToggles[2].checked ? 1 : 0);
+  gl.uniform1i(U.uGammaOn, document.querySelector('#gammaOn').checked ? 1 : 0);
   gl.uniform1i(U.uUseNormalMat, 1);
 
   // 바닥
@@ -438,6 +538,8 @@ function render() {
     const marker = Mat4.multiply(Mat4.translate(...spotPos), Mat4.scale(0.12, 0.12, 0.12));
     draw(sphere, marker, [0.55, 0.82, 1.0], 1, true);
   }
+
+  drawLander(t);
 
   gl.bindVertexArray(null);
   requestAnimationFrame(render);
