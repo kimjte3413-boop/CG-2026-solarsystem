@@ -2,149 +2,83 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <title>나만의 태양계</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>컴퓨터 그래픽스 실습 모음</title>
   <style>
-    body { margin: 0; background: #111; }
-    canvas { display: block; width: 100vw; height: 100vh; }
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #0b1020;
+      color: #e7edf8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    main { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 52px 0 64px; }
+    header { margin-bottom: 32px; }
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 5vw, 38px); }
+    header p { margin: 0; color: #aab8cf; }
+    .weeks { display: grid; gap: 16px; }
+    section { padding: 20px; border: 1px solid #293650; border-radius: 14px; background: #111a2d; }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    a {
+      display: block;
+      padding: 13px 15px;
+      border: 1px solid #354663;
+      border-radius: 9px;
+      background: #17243a;
+      color: #dceaff;
+      text-decoration: none;
+    }
+    a:hover, a:focus-visible { border-color: #80baff; background: #1d304d; outline: none; }
+    a span { display: block; margin-top: 3px; color: #aab8cf; font-size: 13px; }
+    .extra { margin-top: 18px; }
   </style>
 </head>
 <body>
-  <canvas id="glcanvas"></canvas>
-  <script>
-    const canvas = document.getElementById('glcanvas');
-    const gl = canvas.getContext('webgl2');
-
-    if (!gl) {
-      alert('이 브라우저에서는 WebGL2를 사용할 수 없습니다.');
-      throw new Error('WebGL2를 초기화할 수 없습니다.');
-    }
-
-    const vertexShaderSource = `#version 300 es
-      in vec2 a_position;
-      uniform float u_pointSize;
-      uniform vec2 u_resolution;
-
-      void main() {
-        float scale = min(u_resolution.x, u_resolution.y);
-        vec2 position = a_position * scale / u_resolution;
-        gl_Position = vec4(position, 0.0, 1.0);
-        gl_PointSize = u_pointSize * min(u_resolution.x, u_resolution.y);
-      }
-    `;
-
-    const fragmentShaderSource = `#version 300 es
-      precision highp float;
-      uniform vec3 u_color;
-      uniform float u_sunLight;
-      out vec4 outColor;
-
-      void main() {
-        vec2 centered = gl_PointCoord * 2.0 - 1.0;
-        float distanceFromCenter = dot(centered, centered);
-        if (distanceFromCenter > 1.0) {
-          discard;
-        }
-
-        // A soft highlight gives each point a simple spherical appearance.
-        float light = 0.6 + 0.4 * sqrt(1.0 - distanceFromCenter);
-        light *= u_sunLight;
-        outColor = vec4(u_color * light, 1.0);
-      }
-    `;
-
-    function createShader(type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        const message = gl.getShaderInfoLog(shader);
-        gl.deleteShader(shader);
-        throw new Error(`셰이더 컴파일 실패: ${message}`);
-      }
-      return shader;
-    }
-
-    const program = gl.createProgram();
-    gl.attachShader(program, createShader(gl.VERTEX_SHADER, vertexShaderSource));
-    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fragmentShaderSource));
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(`WebGL 프로그램 연결 실패: ${gl.getProgramInfoLog(program)}`);
-    }
-
-    const positionLocation = gl.getAttribLocation(program, 'a_position');
-    const pointSizeLocation = gl.getUniformLocation(program, 'u_pointSize');
-    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
-    const colorLocation = gl.getUniformLocation(program, 'u_color');
-    const sunLightLocation = gl.getUniformLocation(program, 'u_sunLight');
-
-    const orbitRadius = 0.58;
-    const orbitVertexCount = 160;
-    const orbitVertices = new Float32Array(orbitVertexCount * 2);
-    for (let i = 0; i < orbitVertexCount; i += 1) {
-      const angle = (i / orbitVertexCount) * Math.PI * 2;
-      orbitVertices[i * 2] = Math.cos(angle) * orbitRadius;
-      orbitVertices[i * 2 + 1] = Math.sin(angle) * orbitRadius;
-    }
-
-    const orbitBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, orbitBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, orbitVertices, gl.STATIC_DRAW);
-
-    const pointBuffer = gl.createBuffer();
-    const orbitSpeed = 0.7;
-
-    function resize() {
-      // CSS 픽셀과 실제 픽셀을 맞춰 준다 (고해상도 화면 대응)
-      const dpr = window.devicePixelRatio || 1;
-      const width = Math.floor(canvas.clientWidth * dpr);
-      const height = Math.floor(canvas.clientHeight * dpr);
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-        gl.viewport(0, 0, width, height);
-      }
-    }
-
-    function draw(time) {
-      resize();
-      gl.clearColor(0.08, 0.08, 0.14, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-
-      gl.useProgram(program);
-      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-      gl.enableVertexAttribArray(positionLocation);
-      gl.bindBuffer(gl.ARRAY_BUFFER, orbitBuffer);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-      gl.uniform3f(colorLocation, 0.55, 0.18, 0.85);
-      gl.uniform1f(pointSizeLocation, 0.001);
-      gl.uniform1f(sunLightLocation, 1.0);
-      gl.drawArrays(gl.LINE_LOOP, 0, orbitVertexCount);
-
-      const angle = (time * 0.001 * orbitSpeed) % (Math.PI * 2);
-      const planetVertices = new Float32Array([
-        0, 0,
-        Math.cos(angle) * orbitRadius, Math.sin(angle) * orbitRadius
-      ]);
-      gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffer);
-      gl.bufferData(gl.ARRAY_BUFFER, planetVertices, gl.DYNAMIC_DRAW);
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-      gl.uniform3f(colorLocation, 1.0, 0.82, 0.05);
-      gl.uniform1f(pointSizeLocation, 0.18);
-      gl.uniform1f(sunLightLocation, 1.1);
-      gl.drawArrays(gl.POINTS, 0, 1);
-
-      gl.uniform3f(colorLocation, 0.1, 0.8, 0.25);
-      gl.uniform1f(pointSizeLocation, 0.075);
-      gl.uniform1f(sunLightLocation, 1.0);
-      gl.drawArrays(gl.POINTS, 1, 1);
-
-      requestAnimationFrame(draw);
-    }
-
-    requestAnimationFrame(draw);
-  </script>
+  <main>
+    <header>
+      <h1>컴퓨터 그래픽스 실습 모음</h1>
+      <p>주차별 HTML 실습 페이지를 선택해 열어 보세요.</p>
+    </header>
+    <div class="weeks">
+      <section aria-labelledby="week2">
+        <h2 id="week2">2주차</h2>
+        <div class="links">
+          <a href="week2/task1.html">실습 1 <span>나만의 태양계 · 변환</span></a>
+          <a href="week2/task2.html">실습 2 <span>나만의 태양계 · 변환</span></a>
+        </div>
+      </section>
+      <section aria-labelledby="week3">
+        <h2 id="week3">3주차</h2>
+        <div class="links">
+          <a href="week3/task1.html">실습 1 <span>떠 있는 공</span></a>
+          <a href="week3/task2.html">실습 2 <span>두 개의 절차적 행성</span></a>
+          <a href="week3/w3-start.html">출발 파일 <span>3주차 실습 시작 코드</span></a>
+        </div>
+      </section>
+      <section aria-labelledby="week4">
+        <h2 id="week4">4주차</h2>
+        <div class="links">
+          <a href="week4/baseline/index.html">기본 버전 <span>복합 연구시설 · 기본 트랙볼 뷰어</span></a>
+          <a href="week4/improved/index.html">개선 버전 <span>관찰 지점 선택 및 비교</span></a>
+        </div>
+      </section>
+      <section aria-labelledby="week5">
+        <h2 id="week5">5주차</h2>
+        <div class="links">
+          <a href="week5/task1.html">실습 1 <span>Phong 조명 단계</span></a>
+          <a href="week5/task2.html">실습 2 <span>황혼의 탐사선 · 착륙 애니메이션</span></a>
+        </div>
+      </section>
+    </div>
+    <section class="extra" aria-labelledby="other">
+      <h2 id="other">기타</h2>
+      <div class="links">
+        <a href="solar-system-demo.html">태양계 데모 <span>홈 화면에서 분리한 초기 시험작</span></a>
+      </div>
+    </section>
+  </main>
 </body>
 </html>
