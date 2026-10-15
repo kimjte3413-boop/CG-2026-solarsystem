@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>6주차 실습 2 · 조건부 표면 마스크</title>
+  <link rel="stylesheet" href="demo.css">
+  <style>
+    .wrap{grid-template-columns:minmax(0,1fr) 21rem;height:100vh;height:100dvh}
+    .stage{position:relative;display:block;min-height:320px}
+    .stage canvas{position:absolute;inset:0;width:100%;height:100%;max-height:none;max-width:none;touch-action:none}
+    #status{font-size:12px}
+    .ctl.unavailable{opacity:.45}
+    .ctl.unavailable input,.ctl.unavailable select{cursor:not-allowed}
+    button{padding:8px}
+    .mask-control{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:12px 0;font-size:12px}
+    .mask-control input{grid-column:1 / -1;width:100%}
+    .mask-control output{color:var(--d-accent);font-variant-numeric:tabular-nums}
+    @media(max-width:800px){.wrap{display:block;height:auto}.stage{height:80vh;height:80dvh;min-height:420px}.panel{max-height:none}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <canvas id="cv" aria-label="드래그로 회전하고 휠로 확대하는 PBR 행성" tabindex="0"></canvas>
+      <div class="labels" id="labels"></div>
+    </div>
+    <aside class="panel">
+      <h1>실습 2 · 조건부 표면 마스크</h1>
+      <p class="sub">위도 경계와 돌 표면 세부값으로 녹슨 금속 무늬를 만듭니다. 드래그: 회전 · 휠: 확대</p>
+      <label class="mask-control" for="mask-threshold">
+        금속 무늬 위도 경계 <output id="mask-threshold-value" for="mask-threshold">0.48</output>
+        <input id="mask-threshold" type="range" min="0.35" max="0.95" step="0.01" value="0.48">
+      </label>
+      <label class="mask-control" for="mask-detail">
+        표면 세부 조건 <output id="mask-detail-value" for="mask-detail">0.65</output>
+        <input id="mask-detail" type="range" min="0" max="1" step="0.01" value="0.65">
+      </label>
+      <div id="ui"></div>
+      <button id="reset">시점 초기화</button>
+      <p id="status" role="status">텍스처 로딩 중…</p>
+      <p class="note" id="note"></p>
+      <p>텍스처: Poly Haven · CC0<br>환경 반사는 LDR 파노라마와 밉맵을 사용하는 교육용 근사입니다. GGX 환경광 적분(IBL)은 생략합니다.</p>
+    </aside>
+  </div>
+  <script src="demo.js"></script>
+  <script src="task2.js"></script>
+</body>
+</html>
