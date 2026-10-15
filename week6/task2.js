@@ -192,9 +192,8 @@ const origin=[0,0,0],sunColor=new Float32Array([1.0,.57,.22]);
 document.querySelector('#display-note').textContent='자전·공전이 진행 중입니다. 두 슬라이더와 비교·진단 화면을 사용해 보세요.';
 document.querySelector('#note').textContent='니바: 별에서 멀어질수록 극지 서리가 확장되고, 충돌 누적량이 커질수록 독립적인 크레이터 흔적이 늘어납니다.';
 document.querySelector('#labels').innerHTML='';
-let visible=true;new IntersectionObserver(e=>visible=e[0].isIntersecting).observe(cv);
 D.loop((time)=>{
- if(!visible||document.hidden)return;
+ if(document.hidden)return;
  if(previousTime!==null&&running){const dt=Math.min(time-previousTime,.05);spin+=dt*.32;orbit+=dt*.08;}
  previousTime=time;
  D.fit(cv);
