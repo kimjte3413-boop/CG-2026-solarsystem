@@ -4,44 +4,63 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1020">
-  <title>6주차 실습 2 · 조건부 표면 마스크</title>
+  <title>6주차 실습 2 · 니바, 서리와 충돌의 행성</title>
   <link rel="stylesheet" href="demo.css">
   <style>
-    .wrap{grid-template-columns:minmax(0,1fr) 21rem;height:100vh;height:100dvh}
-    .stage{position:relative;display:block;min-height:320px}
+    .wrap{grid-template-columns:minmax(0,1fr) 22rem;height:100vh;height:100dvh}
+    .stage{position:relative;display:block;min-height:360px}
     .stage canvas{position:absolute;inset:0;width:100%;height:100%;max-height:none;max-width:none;touch-action:none}
     #status{font-size:12px}
     .ctl.unavailable{opacity:.45}
     .ctl.unavailable input,.ctl.unavailable select{cursor:not-allowed}
     button{padding:8px}
-    .mask-control{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:12px 0;font-size:12px}
-    .mask-control input{grid-column:1 / -1;width:100%}
-    .mask-control output{color:var(--d-accent);font-variant-numeric:tabular-nums}
-    @media(max-width:800px){.wrap{display:block;height:auto}.stage{height:80vh;height:80dvh;min-height:420px}.panel{max-height:none}}
+    .world-control{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;margin:12px 0;font-size:12px}
+    .world-control input{grid-column:1 / -1;width:100%}
+    .world-control output{color:var(--d-accent);font-variant-numeric:tabular-nums}
+    .display-control{display:grid;gap:5px;margin:12px 0;font-size:12px}
+    .display-control select{padding:7px;border:1px solid var(--d-line-strong);border-radius:5px;background:var(--d-bg);color:var(--d-ink)}
+    .button-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .button-row button[aria-pressed="true"]{border-color:var(--d-accent);background:var(--d-accent-soft)}
+    .compare-label{align-self:start;justify-self:center;margin:12px 0;padding:5px 9px;border-radius:5px;background:var(--d-bg);color:var(--d-ink);font-size:12px;font-weight:700}
+    .labels{grid-template-columns:1fr 1fr;pointer-events:none}
+    #display-note{min-height:2em}
+    @media(max-width:800px){.wrap{display:block;height:auto}.stage{height:72vh;height:72dvh;min-height:420px}.panel{max-height:none}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="stage">
-      <canvas id="cv" aria-label="드래그로 회전하고 휠로 확대하는 PBR 행성" tabindex="0"></canvas>
+      <canvas id="cv" aria-label="태양 주위를 공전하고 자전하는 PBR 행성 니바" tabindex="0"></canvas>
       <div class="labels" id="labels"></div>
     </div>
     <aside class="panel">
-      <h1>실습 2 · 조건부 표면 마스크</h1>
-      <p class="sub">위도 경계와 돌 표면 세부값으로 녹슨 금속 무늬를 만듭니다. 드래그: 회전 · 휠: 확대</p>
-      <label class="mask-control" for="mask-threshold">
-        금속 무늬 위도 경계 <output id="mask-threshold-value" for="mask-threshold">0.48</output>
-        <input id="mask-threshold" type="range" min="0.35" max="0.95" step="0.01" value="0.48">
+      <h1>실습 2 · 니바, 서리와 충돌의 행성</h1>
+      <p class="sub">별에서 멀어지면 극지 서리가 확장되고, 충돌이 쌓이면 크레이터가 늘어납니다. 드래그: 시점 회전 · 휠: 확대</p>
+      <label class="world-control" for="solar-condition">
+        태양 거리 · 서리 조건 <output id="solar-condition-value" for="solar-condition">50 · 거리 3.6 AU</output>
+        <input id="solar-condition" type="range" min="0" max="100" step="1" value="50">
       </label>
-      <label class="mask-control" for="mask-detail">
-        표면 세부 조건 <output id="mask-detail-value" for="mask-detail">0.65</output>
-        <input id="mask-detail" type="range" min="0" max="1" step="0.01" value="0.65">
+      <label class="world-control" for="impact-amount">
+        충돌 누적량 <output id="impact-amount-value" for="impact-amount">50%</output>
+        <input id="impact-amount" type="range" min="0" max="100" step="1" value="50">
       </label>
-      <div id="ui"></div>
-      <button id="reset">시점 초기화</button>
+      <label class="display-control" for="display-mode">표면 보기
+        <select id="display-mode">
+          <option value="0">PBR 재질</option>
+          <option value="1">마스크 1 · 극지 서리</option>
+          <option value="2">마스크 2 · 충돌 흔적</option>
+        </select>
+      </label>
+      <div class="button-row">
+        <button id="compare-toggle" type="button" aria-pressed="false">기본/변화 비교</button>
+        <button id="rotate-toggle" type="button" aria-pressed="true">자전·공전 멈춤</button>
+        <button id="reset" type="button">시점 초기화</button>
+      </div>
+      <p id="display-note" class="note" aria-live="polite">자전·공전이 진행 중입니다. 두 슬라이더와 비교·진단 화면을 사용해 보세요.</p>
       <p id="status" role="status">텍스처 로딩 중…</p>
-      <p class="note" id="note"></p>
-      <p>텍스처: Poly Haven · CC0<br>환경 반사는 LDR 파노라마와 밉맵을 사용하는 교육용 근사입니다. GGX 환경광 적분(IBL)은 생략합니다.</p>
+      <p id="note"></p>
+      <p>재질: 돌 Diffuse·nor_gl·ARM + 셰이더 생성 서리·충돌 마스크. 환경 반사는 LDR 근사입니다.</p>
+      <p><a href="week6.html">6주차 보고서</a></p>
     </aside>
   </div>
   <script src="demo.js"></script>
