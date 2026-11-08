@@ -39,6 +39,34 @@
       <option value="spot">스포트라이트 (spot)</option>
     </select>
   </label>
+  <div id="spotAngles">
+    <label>spot 안쪽 각
+      <input id="spotInner" type="range" min="5" max="24" step="1" value="16">
+    </label>
+    <p>안쪽: <output id="spotInnerValue">16°</output></p>
+    <label>spot 바깥 각
+      <input id="spotOuter" type="range" min="18" max="40" step="1" value="28">
+    </label>
+    <p>바깥쪽: <output id="spotOuterValue">28°</output></p>
+  </div>
+  <label>행성 스케일 비교
+    <select id="scaleMode">
+      <option value="uniform" selected>균등 스케일</option>
+      <option value="nonuniform">비균등 스케일 (0.7, 2.2, 0.7)</option>
+    </select>
+  </label>
+  <label>법선 변환
+    <select id="normalMode">
+      <option value="normal" selected>역전치 법선 행렬 (uNormalMat)</option>
+      <option value="model">모델 행렬 (mat3(uModel), 비교용)</option>
+    </select>
+  </label>
+  <label>광원 자동 회전
+    <input id="lightMotion" type="checkbox" checked>
+  </label>
+  <label>행성·달 자동 회전
+    <input id="objectMotion" type="checkbox" checked>
+  </label>
   <label>환경광 세기
     <input id="ambient" type="range" min="0" max="0.4" step="0.01" value="0.08">
   </label>
@@ -115,6 +143,7 @@ layout(location=1) in vec3 aNormal;
 
 uniform mat4 uModel, uView, uProj;
 uniform mat3 uNormalMat;
+uniform bool uUseNormalMat;
 
 out vec3 vWorldPos;                   // 이 픽셀이 세계 어디에 있는가
 out vec3 vNormal;                     // 이 픽셀의 표면이 어디를 향하는가
@@ -123,7 +152,7 @@ void main() {
   vec4 world = uModel * vec4(aPos, 1.0);
   vWorldPos  = world.xyz;
 
-  vNormal = uNormalMat * aNormal;
+  vNormal = uUseNormalMat ? uNormalMat * aNormal : mat3(uModel) * aNormal;
 
   gl_Position = uProj * uView * world;
 }
@@ -144,6 +173,8 @@ uniform vec3  uLightColor;
 uniform vec3  uLightDirection;        // directional 방향 및 spot 진행 방향
 uniform vec3  uViewPos;               // 카메라의 세계 좌표
 uniform float uShininess;
+uniform float uSpotInnerCos;
+uniform float uSpotOuterCos;
 uniform bool  uEmissive;              // 태양처럼 스스로 빛나는 물체인가
 uniform int   uLightType;              // 0 point, 1 directional, 2 spot
 uniform int   uStage;                  // 1 diffuse, 2 ambient, 3 specular, 4 attenuation
@@ -170,7 +201,7 @@ void main() {
     L = normalize(toLight);
     if (uLightType == 2) {
       float theta = dot(normalize(vWorldPos - uLightPos), normalize(uLightDirection));
-      cone = smoothstep(cos(radians(28.0)), cos(radians(16.0)), theta);
+      cone = smoothstep(uSpotOuterCos, uSpotInnerCos, theta);
     }
   }
   vec3 V = normalize(uViewPos - vWorldPos);       // 눈 쪽 방향
@@ -307,8 +338,9 @@ const program = createProgram(VS_SOURCE, FS_SOURCE);
 
 // uniform 의 위치를 이름으로 한 번만 찾아 둔다
 const U = {};
-['uModel','uView','uProj','uNormalMat','uBaseColor','uLightPos','uLightColor',
- 'uLightDirection','uViewPos','uShininess','uEmissive','uLightType','uStage','uAmbientStrength','uClampDiffuse'].forEach(function (n) {
+['uModel','uView','uProj','uNormalMat','uUseNormalMat','uBaseColor','uLightPos','uLightColor',
+ 'uLightDirection','uViewPos','uShininess','uSpotInnerCos','uSpotOuterCos','uEmissive',
+ 'uLightType','uStage','uAmbientStrength','uClampDiffuse'].forEach(function (n) {
   U[n] = gl.getUniformLocation(program, n);
 });
 
@@ -364,7 +396,12 @@ canvas.addEventListener('wheel', function (e) {
 /* ══════════════════════════════════════════════════════════════════════════
    7. 매 프레임 그린다
    ══════════════════════════════════════════════════════════════════════════ */
-const startTime = performance.now();
+let lightAngleOffset = 0;
+let lightMotionStartedAt = performance.now();
+let frozenLightAngle = 0;
+let objectTimeOffset = 0;
+let objectMotionStartedAt = performance.now();
+let frozenObjectTime = 0;
 const stageNames = [
   '',
   '확산광',
@@ -377,6 +414,34 @@ const stageValue = document.querySelector('#stageValue');
 stageSelect.addEventListener('change', () => {
   stageValue.textContent = stageNames[Number(stageSelect.value)];
 });
+document.querySelector('#lightMotion').addEventListener('change', event => {
+  if (event.target.checked) {
+    lightAngleOffset = frozenLightAngle;
+    lightMotionStartedAt = performance.now();
+  } else {
+    frozenLightAngle = lightAngleOffset + (performance.now() - lightMotionStartedAt) * 0.0004;
+  }
+});
+document.querySelector('#objectMotion').addEventListener('change', event => {
+  if (event.target.checked) {
+    objectTimeOffset = frozenObjectTime;
+    objectMotionStartedAt = performance.now();
+  } else {
+    frozenObjectTime = objectTimeOffset + (performance.now() - objectMotionStartedAt) / 1000;
+  }
+});
+function updateSpotAngles(changed) {
+  const inner = document.querySelector('#spotInner');
+  const outer = document.querySelector('#spotOuter');
+  if (Number(inner.value) >= Number(outer.value)) {
+    if (changed === inner) outer.value = String(Number(inner.value) + 1);
+    else inner.value = String(Number(outer.value) - 1);
+  }
+  document.querySelector('#spotInnerValue').value = `${inner.value}°`;
+  document.querySelector('#spotOuterValue').value = `${outer.value}°`;
+}
+document.querySelector('#spotInner').addEventListener('input', event => updateSpotAngles(event.target));
+document.querySelector('#spotOuter').addEventListener('input', event => updateSpotAngles(event.target));
 
 // 물체 하나를 그리는 함수. 모델 행렬과 재질만 바꿔 여러 번 부른다.
 function draw(mesh, model, color, shininess, emissive) {
@@ -399,7 +464,9 @@ function render() {
   gl.clearColor(0.04, 0.06, 0.10, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  const t = (performance.now() - startTime) / 1000;
+  const objectTime = document.querySelector('#objectMotion').checked
+    ? objectTimeOffset + (performance.now() - objectMotionStartedAt) / 1000
+    : frozenObjectTime;
 
   // 카메라
   const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
@@ -410,7 +477,10 @@ function render() {
   const proj = Mat4.perspective(Math.PI / 4, canvas.width / canvas.height, 0.1, 200);
 
   // 광원 — 장면 위를 천천히 돈다
-  const lightPos = [Math.cos(t * 0.4) * 5.0, 3.6, Math.sin(t * 0.4) * 5.0];
+  const lightAngle = document.querySelector('#lightMotion').checked
+    ? lightAngleOffset + (performance.now() - lightMotionStartedAt) * 0.0004
+    : frozenLightAngle;
+  const lightPos = [Math.cos(lightAngle) * 5.0, 3.6, Math.sin(lightAngle) * 5.0];
   const lightTypeName = document.querySelector('#lightType').value;
   const lightType = lightTypeName === 'directional' ? 1 : lightTypeName === 'spot' ? 2 : 0;
   const spotPos = [0.0, 6.0, 2.5];
@@ -428,17 +498,23 @@ function render() {
   gl.uniform1i(U.uStage, Number(stageSelect.value));
   gl.uniform1f(U.uAmbientStrength, Number(document.querySelector('#ambient').value));
   gl.uniform1i(U.uClampDiffuse, document.querySelector('#maxClamp').checked ? 1 : 0);
+  gl.uniform1i(U.uUseNormalMat, document.querySelector('#normalMode').value === 'normal' ? 1 : 0);
+  gl.uniform1f(U.uSpotInnerCos, Math.cos(Number(document.querySelector('#spotInner').value) * Math.PI / 180));
+  gl.uniform1f(U.uSpotOuterCos, Math.cos(Number(document.querySelector('#spotOuter').value) * Math.PI / 180));
 
   // 바닥
   draw(plane, Mat4.identity(), [0.32, 0.34, 0.40], 8, false);
 
   // 행성 — 가운데에 떠서 돈다
-  let m = Mat4.multiply(Mat4.translate(0, 1.6, 0), Mat4.rotateY(t * 0.3));
-  m = Mat4.multiply(m, Mat4.scale(1.3, 1.3, 1.3));
+  let m = Mat4.multiply(Mat4.translate(0, 1.6, 0), Mat4.rotateY(objectTime * 0.3));
+  const scale = document.querySelector('#scaleMode').value === 'nonuniform'
+    ? Mat4.scale(0.7, 2.2, 0.7)
+    : Mat4.scale(1.3, 1.3, 1.3);
+  m = Mat4.multiply(m, scale);
   draw(sphere, m, [0.80, 0.42, 0.32], 32, false);
 
   // 달 — 행성 둘레를 돈다
-  let mm = Mat4.multiply(Mat4.translate(0, 1.6, 0), Mat4.rotateY(t * 0.9));
+  let mm = Mat4.multiply(Mat4.translate(0, 1.6, 0), Mat4.rotateY(objectTime * 0.9));
   mm = Mat4.multiply(mm, Mat4.translate(2.8, 0, 0));
   mm = Mat4.multiply(mm, Mat4.scale(0.42, 0.42, 0.42));
   draw(sphere, mm, [0.72, 0.72, 0.76], 16, false);
