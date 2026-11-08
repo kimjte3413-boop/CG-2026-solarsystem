@@ -53,35 +53,37 @@
 /* 도(degree)를 라디안으로 바꿉니다. 실습 도구의 deg() 와 같습니다. */
 const deg = d => d * Math.PI / 180;
 
-/* 지구 — 실습 도구에서 놓은 순서 그대로입니다 */
+/* 지구 반지름을 거리 단위로 사용합니다. */
 function earthMatrix(t) {
   let M = M4.identity(M4.create());
-  M = M4.scale(M, M, [6371, 6371, 6371]);   // 크기(균등) 6371배
+  M = M4.scale(M, M, [1, 1, 1]);              // 지구 반지름 = 1
   return M;
 }
 
-/* 달 — 실습 도구에서 놓은 순서 그대로입니다 */
+/* 달은 공전하면서 지구를 향하는 +X 방향을 유지합니다. */
 function moonMatrix(t) {
   let M = M4.identity(M4.create());
-  M = M4.translate(M, M, [384400, 0, 0]);   // 이동 T(384400, 0, 0)
-  M = M4.scale(M, M, [1737, 1737, 1737]);   // 크기(균등) 1737배
+  M = M4.rotateZ(M, M, deg((360 / (27.3 * 24)) * t)); // t는 시뮬레이션 시간(시간)
+  M = M4.translate(M, M, [60.3, 0, 0]);       // 평균 거리 / 지구 반지름
+  M = M4.rotateZ(M, M, deg(180));             // 로컬 +X를 지구 쪽으로
+  M = M4.scale(M, M, [0.273, 0.273, 0.273]);  // 달 반지름 / 지구 반지름
   return M;
 }
 
-/* 인공위성 — 실습 도구에서 놓은 순서 그대로입니다 */
+/* ISS는 51.6도 기울어진 궤도에서 공전하며 로컬 +X가 지구를 향합니다. */
 function satelliteMatrix(t) {
   let M = M4.identity(M4.create());
-  M = M4.rotateX(M, M, deg(-51.63));   // 회전 Rx(-51.63도)
-  M = M4.rotateZ(M, M, deg(100 * t));   // 회전 Rz(100*t도)
-  M = M4.translate(M, M, [6771, 0, 0]);   // 이동 T(6771, 0, 0)
-  M = M4.scale(M, M, [100, 100, 100]);   // 크기(균등) 100배
-  M = M4.rotateY(M, M, deg(90));   // 회전 Ry(90도)
+  M = M4.rotateX(M, M, deg(51.6));              // ISS 궤도 경사
+  M = M4.rotateZ(M, M, deg((360 / 1.5) * t));    // ISS 공전 주기 약 90분
+  M = M4.translate(M, M, [1.063, 0, 0]);         // 지구 반지름 + 고도
+  M = M4.rotateZ(M, M, deg(180));                // 로컬 +X를 지구 쪽으로
+  M = M4.scale(M, M, [0.00000534, 0.00000534, 0.00000534]); // 실제 길이 비율
   return M;
 }
 
 
 /* 축의 표시 범위 — 실습 도구의 「축 범위」 값입니다. */
-const RANGE = { x: 400000, y: 400000, z: 100000 };
+const RANGE = { x: 70, y: 70, z: 70 };
 
 /* 물체 목록 — 색과 모양, 그리고 위에서 정의한 변환 함수를 묶습니다. */
 const OBJECTS = [
@@ -91,7 +93,7 @@ const OBJECTS = [
 ];
 
 /* 시간이 흐르는 속도와 되돌아가는 지점 (실습 도구와 같은 규칙) */
-const T_SPEED = 0.5;
+const T_SPEED = 0.5; // 시뮬레이션 시간(시간) / 실제 초
 const T_MAX = 20;
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -355,7 +357,7 @@ const gridBuf = lineBuf(400), axesBuf = lineBuf(24);
 /* ══════════════════════════════════════════════════════════════════════════
    5. 카메라 — 마우스로 돌려 보기
    ══════════════════════════════════════════════════════════════════════════ */
-const cam = { yaw: 0.7, pitch: 0.42, dist: 9 };
+const cam = { yaw: 0.7, pitch: 0.42, dist: 180 };
 let dragging = false, px = 0, py = 0;
 
 cv.addEventListener('pointerdown', e => {
