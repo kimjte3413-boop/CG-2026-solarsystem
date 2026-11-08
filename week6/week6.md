@@ -16,8 +16,19 @@
 - 녹슨 금속: 표면의 얼룩과 요철이 Diffuse/normal 맵에 따라 보이고, 낮은 roughness 영역의 직접광 및 환경 반사가 밝은 하이라이트로 나타납니다.
 - 나무·돌: 재질 선택을 바꾸면 베이스 색과 거칠기/금속성 응답이 달라집니다. `roughness`, `metallic`, `normal`, 직접광, ambient, 환경 반사 슬라이더를 각각 움직여 차이를 확인할 수 있습니다.
 - 직접광 세기를 낮춰도 ambient와 환경 반사의 기여는 남으며, 환경 반사 세기를 낮추면 그 반사 성분만 줄어듭니다.
+- `NEAREST`·`LINEAR`·`TRILINEAR` 필터를 바꾸어 확대·축소된 텍스처의 픽셀 경계와 밉맵 보간 차이를 비교할 수 있습니다. 같은 재질·시점에서 필터만 바꾸어 확인합니다.
+- base color·ARM·normal 맵을 각각 끄고 켜면 같은 카메라에서 색상 텍스처, 위치별 재질값, 조명용 법선의 기여를 분리해 볼 수 있습니다.
 
 ![실습 1 PBR 재질 캡처](images/task1-pbr.png)
+
+같은 재질·시점을 유지하고 각 맵을 끄고 켜며 비교합니다. 과제에서 요구한 단계 1·3·4와 필터 비교 캡처는 직접 실행한 뒤 다음 경로에 추가해야 합니다.
+
+| 비교 | 조작 | 보고서 이미지 |
+|---|---|---|
+| 색상 텍스처 | base color 맵 끔/켬 | `images/task1-color-compare.png` |
+| ARM 재질값 | ARM 재질 맵 끔/켬 | `images/task1-arm-compare.png` |
+| 노멀맵 | normal 맵 끔/켬 | `images/task1-normal-compare.png` |
+| 필터링 | NEAREST·LINEAR·TRILINEAR | `images/task1-filtering.png` |
 
 ## 실습 2 — 위도·세부값 조건 표면 마스크
 

@@ -140,7 +140,7 @@ function makeSphere(seg){
   }
  }
  for(let i=0;i<seg;i++)for(let j=0;j<around;j++){
-  const a=i*width+j,b=a+width;idx.push(a,b,a+1,a+1,b,b+1);
+  const a=i*width+j,b=a+width;idx.push(a,a+1,b,a+1,b+1,b);
  }
  return {pos:new Float32Array(pos),nrm:new Float32Array(nrm),uv:new Float32Array(uv),idx:new Uint16Array(idx)};
 }
