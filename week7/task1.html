@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7주차 실습 1 · 일식과 월식 ray tracing</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <main class="layout">
+    <div class="stage"><canvas id="canvas" aria-label="광선 추적으로 그린 일식과 월식 장면"></canvas></div>
+    <aside class="panel">
+      <h1>실습 1 · 일식과 월식</h1>
+      <p>각 화면 픽셀에서 카메라 광선을 보내 별·행성·위성과 교차시키고, 별 방향의 그림자 광선으로 식을 계산합니다.</p>
+      <div class="row">
+        <button id="solar" type="button">일식 보기 · 0°</button>
+        <button id="lunar" type="button">월식 보기 · 180°</button>
+      </div>
+      <label for="orbit">위성 공전 위치 <output id="orbit-value">0°</output></label>
+      <input id="orbit" type="range" min="0" max="360" step="1" value="0">
+      <div class="row"><button id="play" type="button" aria-pressed="false">공전 재생</button></div>
+      <label for="shadow">그림자 광선</label>
+      <select id="shadow">
+        <option value="1">켜기</option>
+        <option value="0">끄기</option>
+      </select>
+      <div class="row"><button id="reset" type="button">시점 초기화</button></div>
+      <p id="status" class="status" role="status">WebGL2 준비 중…</p>
+      <p class="note">실선으로 보이는 그림자 광선은 교차점에서 별까지 다른 천체가 막는지 검사합니다. 드래그로 카메라를 회전하세요.</p>
+      <p><a href="week7.md">7주차 보고서</a></p>
+    </aside>
+  </main>
+  <script src="demo.js"></script>
+  <script src="task1.js"></script>
+</body>
+</html>
