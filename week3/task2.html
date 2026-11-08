@@ -174,13 +174,16 @@ void main() {
     color = mix(rock, lava, molten);
   } else if (uPlanetType == 1) {
     float longitude = atan(S.z, S.x);
-    float bands = sin(S.y * 24.0 + fbm(S * 3.5) * 5.0
-                      + sin(longitude * 3.0 + uTime * 0.12) * 0.35);
-    float ice = smoothstep(-0.18, 0.22, bands);
-    vec3 deepIce = vec3(0.025, 0.20, 0.38);
-    vec3 paleIce = vec3(0.42, 0.88, 0.96);
-    float polarCap = smoothstep(0.78, 0.91, abs(S.y));
-    color = mix(mix(deepIce, paleIce, ice), vec3(0.88, 0.97, 1.0), polarCap);
+    float warp = fbm(S * 3.1 + vec3(0.0, uTime * 0.015, 0.0)) - 0.5;
+    float dunePhase = S.y * 18.0 + longitude * 8.0 + warp * 5.0 + uTime * 0.11;
+    float dune = 0.5 + 0.5 * sin(dunePhase);
+    float ridge = smoothstep(0.22, 0.78, dune);
+    float grain = fbm(S * 17.0 + vec3(0.0, uTime * 0.015, 0.0));
+    vec3 shadowSand = vec3(0.30, 0.12, 0.035);
+    vec3 sunlitSand = vec3(0.95, 0.62, 0.24);
+    color = mix(shadowSand, sunlitSand, ridge);
+    color += (grain - 0.5) * 0.16;
+    color = clamp(color, 0.0, 1.0);
   } else {
     color = vColor;
   }
