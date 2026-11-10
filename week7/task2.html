@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7주차 실습 2 · 렌더링 성능 비교</title>
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <main class="layout">
+    <div class="stage"><canvas id="canvas" aria-label="Local rasterization, ray tracing, and path tracing comparison"></canvas></div>
+    <aside class="panel">
+      <h1>실습 2 · 화질과 성능 비교</h1>
+      <p>같은 구 장면을 local rasterization, ray tracing, path tracing으로 렌더링합니다. 측정값은 이 브라우저에서 직접 실행한 결과입니다.</p>
+      <label for="renderer">렌더링 방식</label>
+      <select id="renderer">
+        <option value="local">Local rasterization</option>
+        <option value="ray">기본 ray tracing</option>
+        <option value="path">Path tracing</option>
+      </select>
+      <label for="resolution">해상도</label>
+      <select id="resolution">
+        <option value="320x180">320×180</option>
+        <option value="640x360">640×360</option>
+        <option value="960x540">960×540</option>
+        <option value="1280x720">1280×720</option>
+        <option value="1920x1080">1920×1080</option>
+      </select>
+      <label for="samples">표본 / 픽셀 <output id="samples-value">8</output></label>
+      <input id="samples" type="range" min="4" max="32" step="4" value="8">
+      <label for="bounces">최대 반사 <output id="bounces-value">2회</output></label>
+      <input id="bounces" type="range" min="1" max="4" step="1" value="2">
+      <label for="advanced">고급 반사·굴절·환경</label>
+      <select id="advanced">
+        <option value="1">켜기</option>
+        <option value="0">끄기</option>
+      </select>
+      <div class="row"><button id="measure" type="button">세 방식 3회 측정</button></div>
+      <div class="row"><button id="save-profile" type="button">이 기기 설정 저장</button></div>
+      <div id="profile" class="profile">기기별 초기 설정을 측정 중…</div>
+      <p id="status" class="status" role="status">WebGL2 준비 중…</p>
+      <h2>측정 결과 · 중앙값</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>방식</th><th>GPU ms</th><th>동기화 ms</th></tr></thead>
+          <tbody>
+            <tr><td>Local</td><td id="local-gpu">—</td><td id="local-wall">—</td></tr>
+            <tr><td>Ray</td><td id="ray-gpu">—</td><td id="ray-wall">—</td></tr>
+            <tr><td>Path</td><td id="path-gpu">—</td><td id="path-wall">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">공통 비교는 640×360 · 8표본 · 2회 반사 · 고급 효과 켬으로 2~3회 반복하세요. 동기화 시간은 WebGL GPU 완료 대기를 포함합니다. GPU 시간은 지원되는 타이머 확장에서만 표시됩니다.</p>
+      <p><a href="week7.md">7주차 보고서</a></p>
+    </aside>
+  </main>
+  <script src="demo.js"></script>
+  <script src="task2.js"></script>
+</body>
+</html>

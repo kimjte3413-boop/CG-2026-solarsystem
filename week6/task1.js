@@ -16,6 +16,7 @@ in vec3 vP,vN; in vec2 vUV; out vec4 outColor;
 uniform sampler2D uColor,uNormal,uARM,uEnv;
 uniform vec3 uEye,uLight,uTint;
 uniform float uRough,uMetal,uNormalStrength,uPower,uAmbient,uEnvPower;
+uniform int uUseColorMap,uUseArmMap,uUseNormalMap;
 
 vec3 srgbToLinear(vec3 c){
  return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));
@@ -44,22 +45,26 @@ vec3 directPBR(vec3 N,vec3 V,vec3 L,vec3 base,float rough,float metal){
 
 void main(){
  vec3 N=normalize(vN),V=normalize(uEye-vP),L=normalize(uLight);
- vec3 base=srgbToLinear(texture(uColor,vUV).rgb)*uTint;
+ vec3 base=uTint;
+ if(uUseColorMap!=0)base=srgbToLinear(texture(uColor,vUV).rgb)*uTint;
 
  float rough=uRough,metal=uMetal,ao=1.0;
- vec3 arm=texture(uARM,vUV).rgb;
- ao=clamp(arm.r,0.0,1.0);
- rough=clamp(arm.g*uRough,0.04,1.0);
- metal=clamp(arm.b*uMetal,0.0,1.0);
-
- vec3 tangentNormal=texture(uNormal,vUV).rgb*2.0-1.0;
- tangentNormal.xy*=uNormalStrength;
- tangentNormal=normalize(tangentNormal);
- vec3 dp1=dFdx(vP),dp2=dFdy(vP);
- vec2 duv1=dFdx(vUV),duv2=dFdy(vUV);
- vec3 T=normalize(dp1*duv2.y-dp2*duv1.y);
- vec3 B=normalize(-dp1*duv2.x+dp2*duv1.x);
- N=normalize(mat3(T,B,N)*tangentNormal);
+ if(uUseArmMap!=0){
+  vec3 arm=texture(uARM,vUV).rgb;
+  ao=clamp(arm.r,0.0,1.0);
+  rough=clamp(arm.g*uRough,0.04,1.0);
+  metal=clamp(arm.b*uMetal,0.0,1.0);
+ }
+ if(uUseNormalMap!=0){
+  vec3 tangentNormal=texture(uNormal,vUV).rgb*2.0-1.0;
+  tangentNormal.xy*=uNormalStrength;
+  tangentNormal=normalize(tangentNormal);
+  vec3 dp1=dFdx(vP),dp2=dFdy(vP);
+  vec2 duv1=dFdx(vUV),duv2=dFdy(vUV);
+  vec3 T=normalize(dp1*duv2.y-dp2*duv1.y);
+  vec3 B=normalize(-dp1*duv2.x+dp2*duv1.x);
+  N=normalize(mat3(T,B,N)*tangentNormal);
+ }
 
  vec3 color=directPBR(N,V,L,base,rough,metal)
            +base*(1.0-metal)*uAmbient*ao;
@@ -80,20 +85,37 @@ void main(){
 }`;
 const prog=D.program(gl,VS,FS),U=D.uniforms(gl,prog,[
  'uVP','uEye','uLight','uTint','uRough','uMetal','uNormalStrength','uPower','uAmbient','uEnvPower',
+ 'uUseColorMap','uUseArmMap','uUseNormalMap',
  'uColor','uNormal','uARM','uEnv'
 ]);
 const mesh=D.upload(gl,D.cube(1.9));
 const assets={wood_planks:['Diffuse','nor_gl','arm'],rusty_metal_04:['Diffuse','nor_gl','arm'],rock_boulder_dry:['Diffuse','nor_gl','arm']};
-const textures={},jobs=[];let failed=false;
+const textures={},jobs=[],allTextures=[];let failed=false,filterMode='trilinear';
+function applyFilter(tex){
+ gl.bindTexture(gl.TEXTURE_2D,tex);
+ if(filterMode==='nearest'){
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+ }else if(filterMode==='linear'){
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ }else{
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ }
+}
 function load(name){
  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,255,255]));
  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+ allTextures.push(tex);
  jobs.push(new Promise(resolve=>{const img=new Image();img.onload=()=>{
-  gl.bindTexture(gl.TEXTURE_2D,tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
   gl.generateMipmap(gl.TEXTURE_2D);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  applyFilter(tex);
   resolve();
  };img.onerror=()=>{failed=true;resolve();};
  img.src='assets/week06/'+name+(name.endsWith('_arm')?'.png':'.jpg');}));
@@ -106,13 +128,26 @@ document.querySelector('#ui').innerHTML='';
 const S=D.UI('#ui',[
  {id:'material',type:'select',label:'재질 선택',value:'rusty_metal_04',options:[
   {value:'rusty_metal_04',label:'녹슨 금속'},{value:'wood_planks',label:'나무'},{value:'rock_boulder_dry',label:'돌'}]},
+ {id:'colorMap',type:'check',label:'base color 맵',value:true},
+ {id:'armMap',type:'check',label:'ARM 재질 맵',value:true},
+ {id:'normalMap',type:'check',label:'normal map',value:true},
  {id:'rough',label:'roughness 배율',min:.05,max:1,step:.01,value:1},
  {id:'metal',label:'metallic 배율',min:0,max:1,step:.01,value:1},
  {id:'normal',label:'normal 강도',min:0,max:10,step:.1,value:5},
  {id:'power',label:'직접광 세기',min:0,max:8,step:.1,value:4},
  {id:'ambient',label:'상수 ambient',min:0,max:1,step:.01,value:.15},
  {id:'env',label:'환경맵 반사 세기',min:0,max:3,step:.1,value:1.5},
-]);
+ {id:'filter',type:'select',label:'텍스처 필터링',value:'trilinear',options:[
+  {value:'nearest',label:'NEAREST · 최근접 텍셀'},
+  {value:'linear',label:'LINEAR · 한 레벨 보간'},
+  {value:'trilinear',label:'TRILINEAR · 밉맵 보간'}],
+  hint:'모든 재질 맵과 환경 텍스처에 같은 필터를 적용합니다.'},
+],(state,id)=>{
+ if(id==='filter'){
+  filterMode=state.filter;
+  allTextures.forEach(applyFilter);
+ }
+});
 
 const cam=D.orbit(cv,{dist:3.7,pitch:.15});document.querySelector('#reset').onclick=()=>{cam.dist=3.7;cam.yaw=0;cam.pitch=.15;};
 const view=D.M4.create(),proj=D.M4.create(),vp=D.M4.create();
@@ -125,6 +160,9 @@ D.loop(()=>{
  gl.useProgram(prog);gl.uniformMatrix4fv(U.uVP,false,vp);gl.uniform3fv(U.uEye,eye);
  gl.uniform3fv(U.uLight,[.6,.7,1.]);gl.uniform3fv(U.uTint,[1,1,1]);
  for(const [key,value] of Object.entries({uRough:S.rough,uMetal:S.metal,uNormalStrength:S.normal,uPower:S.power,uAmbient:S.ambient,uEnvPower:S.env}))gl.uniform1f(U[key],value);
+ gl.uniform1i(U.uUseColorMap,Number(S.colorMap));
+ gl.uniform1i(U.uUseArmMap,Number(S.armMap));
+ gl.uniform1i(U.uUseNormalMap,Number(S.normalMap));
  [...textures[S.material],envTex].forEach((tex,i)=>{
   gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,tex);
   gl.uniform1i(U[['uColor','uNormal','uARM','uEnv'][i]],i);

@@ -314,12 +314,18 @@
     const halfWidth = mapHalfHeight * mapWidth / mapHeight;
     const x = (position[0] - (3.25 - halfWidth)) / (2 * halfWidth);
     const y = (position[2] + mapHalfHeight) / (2 * mapHalfHeight);
-    const pad = Math.max(6, canvas.width * 0.012);
+    const pixelRatio = canvas.width / Math.max(rect.width, 1);
+    const pad = Math.max(6 / pixelRatio, rect.width * 0.012);
     const xInMap = Math.max(0, Math.min(1, x));
     const yInMap = Math.max(0, Math.min(1, y));
-    contextMarker.style.left = `calc(${100 - 30 - pad / rect.width * 100}% + ${xInMap * 30}%)`;
-    contextMarker.style.top = `calc(${pad / rect.height * 100}% + ${yInMap * 30}%)`;
+    contextMarker.style.left = `${rect.width - mapWidth - pad + xInMap * mapWidth}px`;
+    contextMarker.style.top = `${pad + yInMap * mapHeight}px`;
   }
+
+  window.addEventListener('resize', () => {
+    const task = selectedTask();
+    if (task) placeContextMarker(task.position);
+  });
 
   function focusCamera(task) {
     const poi = model.poi.find(item => item.id === task.id);
