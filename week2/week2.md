@@ -12,15 +12,15 @@
 | ISS 고도 | 약 400 km | 원 궤도로 단순화 |
 | ISS 궤도 반지름 | 약 6,771 km = 1.063 | (6,371 + 400) / 6,371 |
 | ISS 궤도 경사 | 약 51.6° | 궤도면 기울기 |
-| ISS 전체 길이 | 약 109 m | 모형의 최장 길이를 맞추는 데 사용 |
+| ISS 실제 길이 | 약 109 m | 실제 크기는 화면에서 거의 식별 불가능 |
 | 달 공전 주기 | 약 27.3일 | 회전 속도 계산 |
 | ISS 공전 주기 | 약 90분 = 1.5시간 | 회전 속도 계산 |
 
 자료: [2주차 강의 — 축척 검산 표](https://cg.catholic.ac.kr/~mgchoi/CG/weeks/week02/), [NASA Moon Facts](https://science.nasa.gov/moon/facts/) (달 반지름·평균 거리·동주기 자전), [NASA ISS Station Facts](https://www.nasa.gov/international-space-station/space-station-facts-and-figures/) (약 90분 공전·109 m 길이), [satellitemap.space](https://satellitemap.space/) (궤도 경사 확인). 강의의 수치와 NASA의 근삿값은 반올림 차이가 있으므로 이 보고서는 강의 검산 표의 지구·달 기준값을 사용한다.
 
-실행 파일에서 `t`는 **시뮬레이션 시간(시간)** 이다. Task 1·2는 `T_SPEED = 0.5`이므로 실제 1초마다 시뮬레이션 시간이 0.5시간 흐른다. Task 3은 확대된 ISS를 관찰하기 쉽게 `T_SPEED = 0.05`로 낮췄다. 달과 ISS의 각속도는 각각 `360 / (27.3 × 24)`도/시간과 `360 / 1.5`도/시간으로 계산했다. 원 궤도·고정 고도·고정 경사로 단순화했으며, 실제 TLE 궤도 계산은 하지 않는다.
+Task 1·2의 달과 ISS 공전은 이전 보고서에서 입력했던 `Rz(100*t)`를 유지해 화면에서 움직임을 관찰하기 쉽도록 했다. `t`는 초당 0.5씩 증가하고 3.6에서 되감기므로, 두 물체는 약 7.2초마다 한 바퀴 돈다. 이것은 실제 공전 주기의 재현이 아니라 수업 시연을 위한 가속 애니메이션이다. 궤도 반지름과 경사는 별도로 실제 비율에 맞췄다.
 
-## Task 1 — 실제 비율로 만들기
+## Task 1 — 천체 간 거리 비율 유지하기
 
 **축 범위:** x, y, z 모두 ±70 지구 반지름. 달의 중심이 원점에서 60.3이고 반지름이 0.273이므로 바깥 가장자리는 60.573이다. 70은 여기에 약 15% 여유를 둔다.
 
@@ -37,7 +37,7 @@
     {
       "id": "moon", "name": "달", "color": [0.78, 0.78, 0.82],
       "steps": [
-        { "type": "Rz", "args": ["360/(27.3*24)*t"] },
+        { "type": "Rz", "args": ["100*t"] },
         { "type": "T", "args": ["60.3", "0", "0"] },
         { "type": "Rz", "args": ["180"] },
         { "type": "Su", "args": ["0.273"] }
@@ -46,20 +46,20 @@
     {
       "id": "sat", "name": "인공위성", "color": [0.95, 0.72, 0.35],
       "steps": [
-        { "type": "Rx", "args": ["51.6"] },
-        { "type": "Rz", "args": ["360/1.5*t"] },
+        { "type": "Rx", "args": ["-51.63"] },
+        { "type": "Rz", "args": ["100*t"] },
         { "type": "T", "args": ["1.063", "0", "0"] },
-        { "type": "Rz", "args": ["180"] },
-        { "type": "Su", "args": ["0.00000534"] }
+        { "type": "Su", "args": ["100/6371"] },
+        { "type": "Ry", "args": ["90"] }
       ]
     }
   ]
 }
 ```
 
-지구 반지름은 1, 달 중심까지 거리는 60.3, ISS 궤도 반지름은 1.063으로 두었다. ISS 모형의 로컬 최장 길이는 3.2이고, 전체 길이 109 m는 지구 반지름의 약 `0.0000171`이므로 균등 크기는 `0.0000171 / 3.2 ≈ 0.00000534`다. `Rz(180)`은 각 물체의 로컬 +X를 지구 쪽으로 향하게 한다. 달에는 공전과 같은 각도의 자전을 적용해 동주기 자전을 표현한다. ISS의 `Rx(51.6)`은 궤도면을 기울인다.
+지구 반지름은 1, 달 중심까지 거리는 60.3, ISS 궤도 반지름은 1.063으로 두었다. 천체 간 거리 비율은 유지했지만 실제 ISS 길이(약 109 m)는 이 축척에서 보이지 않는다. 이전 보고서의 모형 스케일 100을 지구 반지름 단위로 환산한 `100 / 6371 ≈ 0.0157`을 사용한다. 이는 관찰용 모형이며 실제 ISS 크기 비율은 아니다. `Ry(90)`은 기존 변환 설정의 태양 전지판 방향을 유지하고, `Rx(-51.63)`은 궤도면을 기울인다. 달에는 공전과 같은 각도의 자전을 적용해 지구를 향하는 면을 유지한다. ISS를 구별하려면 지구 가까이 확대해 관찰한다.
 
-- [Task 1 변환 설정 열기](https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNzAiLCJ5IjoiNzAiLCJ6IjoiNzAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyIxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjM2MC8oMjcuMyoyNCkqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyI2MC4zIiwiMCIsIjAiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjE4MCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4yNzMiXX1dfSx7ImlkIjoic2F0IiwibmFtZSI6IuyduOqzteychOyEsSIsImNvbG9yIjpbMC45NSwwLjcyLDAuMzVdLCJzdGVwcyI6W3sidHlwZSI6IlJ4IiwiYXJncyI6WyI1MS42Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyIzNjAvMS41KnQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiMS4wNjMiLCIwIiwiMCJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTgwIl19LHsidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAwMDAwNTM0Il19XX1dfQ%3D%3D)
+- [Task 1 변환 설정 열기](https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiNzAiLCJ5IjoiNzAiLCJ6IjoiNzAifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyIxIl19XX0seyJpZCI6Im1vb24iLCJuYW1lIjoi64usIiwiY29sb3IiOlswLjc4LDAuNzgsMC44Ml0sInN0ZXBzIjpbeyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjEwMCp0Il19LHsidHlwZSI6IlQiLCJhcmdzIjpbIjYwLjMiLCIwIiwiMCJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTgwIl19LHsidHlwZSI6IlN1IiwiYXJncyI6WyIwLjI3MyJdfV19LHsiaWQiOiJzYXQiLCJuYW1lIjoi7J246rO17JyE7ISxIiwiY29sb3IiOlswLjk1LDAuNzIsMC4zNV0sInN0ZXBzIjpbeyJ0eXBlIjoiUngiLCJhcmdzIjpbIi01MS42MyJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTAwKnQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiMS4wNjMiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTAwLzYzNzEiXX0seyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjkwIl19XX1dfQ%3D%3D)
 
 **순서 바꾸기 질문**
 
@@ -69,9 +69,9 @@
 
 **Task 1 질문**
 
-- **단위와 이유:** 지구 반지름을 1로 했다. 천체 간 실제 비율을 유지하면서 수치 규모를 다루기 쉽고, 지구·달·ISS 위치를 한 기준에서 비교할 수 있다.
-- **숫자가 커서 생긴 문제:** 원점에서 달까지 60.3인 반면 ISS의 실제 크기는 약 `0.0000171` 지구 반지름뿐이다. 같은 축척에서 ISS는 사실상 픽셀보다 작아 보이지 않는다. 축을 ±70으로 맞추면 달은 들어오지만 지구와 ISS는 매우 작게 보이는 것이 실제 비율의 결과다.
-- **지구를 향하게 한 단계:** 궤도 회전과 이동 뒤의 `Rz(180)`이 로컬 +X를 반대 방향으로 돌린다. 달은 공전 회전도 자전 회전에 함께 쓰므로 같은 면이 지구를 향한다.
+- **단위와 이유:** 지구 반지름을 1로 했다. 천체 간 거리 비율을 유지하면서 수치 규모를 다루기 쉽고, 지구·달·ISS 위치를 한 기준에서 비교할 수 있다.
+- **숫자가 크거나 작아서 생긴 문제:** 원점에서 달까지 60.3인 반면 ISS의 실제 크기는 약 `0.0000171` 지구 반지름뿐이다. 이전 보고서의 모형 크기 행렬을 기준으로 ISS를 추가 확대해 형태가 보이도록 했지만, 실제 크기 비율은 아니다.
+- **지구를 향하게 한 단계:** 달은 공전 회전과 반대 방향 `Rz(180)`을 함께 적용해 같은 면이 지구를 향하도록 한다. ISS의 `Ry(90)`은 기존 행렬의 태양 전지판 방향을 유지한다.
 
 **캡처 대기:** 직접 실행한 뒤 `images/task1.png`로 저장하고 아래에 추가한다.
 
@@ -96,7 +96,7 @@
       "id": "moon", "name": "달", "color": [0.78, 0.78, 0.82],
       "steps": [
         { "type": "Su", "args": ["0.0165"] },
-        { "type": "Rz", "args": ["360/(27.3*24)*t"] },
+        { "type": "Rz", "args": ["100*t"] },
         { "type": "T", "args": ["60.3", "0", "0"] },
         { "type": "Rz", "args": ["180"] },
         { "type": "Su", "args": ["0.273"] }
@@ -106,22 +106,22 @@
       "id": "sat", "name": "인공위성", "color": [0.95, 0.72, 0.35],
       "steps": [
         { "type": "Su", "args": ["0.0165"] },
-        { "type": "Rx", "args": ["51.6"] },
-        { "type": "Rz", "args": ["360/1.5*t"] },
+        { "type": "Rx", "args": ["-51.63"] },
+        { "type": "Rz", "args": ["100*t"] },
         { "type": "T", "args": ["1.063", "0", "0"] },
-        { "type": "Rz", "args": ["180"] },
-        { "type": "Su", "args": ["0.00000534"] }
+        { "type": "Su", "args": ["100/6371"] },
+        { "type": "Ry", "args": ["90"] }
       ]
     }
   ]
 }
 ```
 
-- [Task 2 변환 설정 열기](https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiMSIsInkiOiIxIiwieiI6IjEifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAxNjUiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjEiXX1dfSx7ImlkIjoibW9vbiIsIm5hbWUiOiLri6wiLCJjb2xvciI6WzAuNzgsMC43OCwwLjgyXSwic3RlcHMiOlt7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4wMTY1Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyIzNjAvKDI3LjMqMjQpKnQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiNjAuMyIsIjAiLCIwIl19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyIxODAiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjAuMjczIl19XX0seyJpZCI6InNhdCIsIm5hbWUiOiLsnbjqs7XsnITshLEiLCJjb2xvciI6WzAuOTUsMC43MiwwLjM1XSwic3RlcHMiOlt7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4wMTY1Il19LHsidHlwZSI6IlJ4IiwiYXJncyI6WyI1MS42Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyIzNjAvMS41KnQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiMS4wNjMiLCIwIiwiMCJdfSx7InR5cGUiOiJSeiIsImFyZ3MiOlsiMTgwIl19LHsidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAwMDAwNTM0Il19XX1dfQ%3D%3D)
+- [Task 2 변환 설정 열기](https://cg.catholic.ac.kr/~mgchoi/CG/demos/d02-transform-lab.html?d=eyJyYW5nZSI6eyJ4IjoiMSIsInkiOiIxIiwieiI6IjEifSwib2JqZWN0cyI6W3siaWQiOiJlYXJ0aCIsIm5hbWUiOiLsp4DqtawiLCJjb2xvciI6WzAuMzUsMC42LDAuOTVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAxNjUiXX0seyJ0eXBlIjoiU3UiLCJhcmdzIjpbIjEiXX1dfSx7ImlkIjoibW9vbiIsIm5hbWUiOiLri6wiLCJjb2xvciI6WzAuNzgsMC43OCwwLjgyXSwic3RlcHMiOlt7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4wMTY1Il19LHsidHlwZSI6IlJ6IiwiYXJncyI6WyIxMDAqdCJdfSx7InR5cGUiOiJUIiwiYXJncyI6WyI2MC4zIiwiMCIsIjAiXX0seyJ0eXBlIjoiUnoiLCJhcmdzIjpbIjE4MCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMC4yNzMiXX1dfSx7ImlkIjoic2F0IiwibmFtZSI6IuyduOqzteychOyEsSIsImNvbG9yIjpbMC45NSwwLjcyLDAuMzVdLCJzdGVwcyI6W3sidHlwZSI6IlN1IiwiYXJncyI6WyIwLjAxNjUiXX0seyJ0eXBlIjoiUngiLCJhcmdzIjpbIi01MS42MyJdfSx7InR5cGUiOiJS eiIsImFyZ3MiOlsiMTAwKnQiXX0seyJ0eXBlIjoiVCIsImFyZ3MiOlsiMS4wNjMiLCIwIiwiMCJdfSx7InR5cGUiOiJTdSIsImFyZ3MiOlsiMTAwLzYzNzEiXX0seyJ0eXBlIjoiUnkiLCJhcmdzIjpbIjkwIl19XX1dfQ%3D%3D)
 
 - **배율을 맨 앞에 둔 이유:** `S · R · T · …`는 오른쪽부터 계산하므로 마지막에 장면 전체를 축소한다. 맨 뒤에 두면 위치는 줄지 않고 물체 크기만 작아져 달이 계속 화면 밖에 남는다.
 - **공통 배율을 쓴 이유:** 물체마다 다른 전역 배율을 쓰면 거리와 크기의 상대 비율이 달라진다. 같은 배율로 장면 전체를 줄여야 실제 비율이 유지된다.
-- **화면에서 보이는 모습:** 달은 NDC 안에 들어온다. 지구는 작고, 달도 작게 보이며, ISS는 실제 크기 비율 때문에 거의 보이지 않는다. 이것이 수치를 틀리게 입력한 것이 아니라 실제 비율을 그대로 그린 결과다.
+- **화면에서 보이는 모습:** 달의 궤도 크기는 공통 배율로 NDC 범위에 맞춘다. ISS는 이전 보고서의 모형 스케일을 사용하며 실제 크기보다 크게 표현한 모형이므로 확대해 확인한다.
 
 **캡처 대기:** 직접 실행한 뒤 `images/task2.png`로 저장하고 아래에 추가한다.
 
