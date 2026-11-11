@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>과제 보고서 · 컴퓨터 그래픽스</title>
+  <link rel="stylesheet" href="report.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">CG <span>STUDIO</span></a>
+    <a class="back-link" href="./">← 주차 목록</a>
+  </header>
+  <main class="layout">
+    <div class="report-column">
+      <header class="hero">
+        <p class="eyebrow">COMPUTER GRAPHICS · COURSE REPORT</p>
+        <h1 id="report-title">보고서를 불러오는 중…</h1>
+        <p id="report-description" class="hero-description">주차별 구현 내용과 관찰 기록</p>
+        <div class="hero-meta">
+          <span id="report-week" class="week-badge">CG REPORT</span>
+          <span>구현 · 관찰 · 검증</span>
+        </div>
+      </header>
+      <div id="report-error" class="error-card" hidden role="alert"></div>
+      <article id="report-content" class="report-content" aria-live="polite"></article>
+      <footer class="report-footer">
+        <a id="source-link" href="#">Markdown 원문 보기</a>
+        <a href="./">주차 목록으로 돌아가기 ↑</a>
+      </footer>
+    </div>
+    <aside class="contents-card" aria-label="보고서 목차">
+      <p class="contents-label">ON THIS PAGE</p>
+      <nav id="report-toc"></nav>
+    </aside>
+  </main>
+  <script src="report.js" defer></script>
+</body>
+</html>
