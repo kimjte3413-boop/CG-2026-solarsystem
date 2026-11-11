@@ -9,6 +9,8 @@
   canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
   #msg { position: fixed; inset: 0; display: grid; place-items: center;
          color: #e7ecf3; font: 15px/1.6 system-ui, sans-serif; padding: 2rem; text-align: center; }
+  #hint { position: fixed; top: 12px; left: 14px; color: #cbd5e1;
+          font: 13px/1.5 system-ui, sans-serif; pointer-events: none; }
   /* id 선택자가 브라우저 기본 [hidden] 규칙을 이기므로 여기서 다시 감춰 준다.
      이걸 빠뜨리면 보이지 않는 오버레이가 캔버스를 덮어 마우스가 먹지 않는다. */
   #msg[hidden] { display: none; }
@@ -16,6 +18,7 @@
 </head>
 <body>
 <canvas id="cv"></canvas>
+<div id="hint">휠로 확대해 ISS와 달을 확인하고, 드래그로 시점을 회전하세요.</div>
 <div id="msg" hidden></div>
 
 <script>
@@ -63,21 +66,21 @@ function earthMatrix(t) {
 /* 달은 공전하면서 지구를 향하는 +X 방향을 유지합니다. */
 function moonMatrix(t) {
   let M = M4.identity(M4.create());
-  M = M4.rotateZ(M, M, deg((360 / (27.3 * 24)) * t)); // t는 시뮬레이션 시간(시간)
+  M = M4.rotateZ(M, M, deg(100 * t));          // 이전 보고서처럼 관찰용으로 빠르게 공전
   M = M4.translate(M, M, [60.3, 0, 0]);       // 평균 거리 / 지구 반지름
   M = M4.rotateZ(M, M, deg(180));             // 로컬 +X를 지구 쪽으로
   M = M4.scale(M, M, [0.273, 0.273, 0.273]);  // 달 반지름 / 지구 반지름
   return M;
 }
 
-/* ISS는 51.6도 기울어진 궤도에서 공전하며 로컬 +X가 지구를 향합니다. */
+/* ISS는 기울어진 궤도에서 공전하며 이전 보고서의 모형 스케일을 사용합니다. */
 function satelliteMatrix(t) {
   let M = M4.identity(M4.create());
-  M = M4.rotateX(M, M, deg(51.6));              // ISS 궤도 경사
-  M = M4.rotateZ(M, M, deg((360 / 1.5) * t));    // ISS 공전 주기 약 90분
+  M = M4.rotateX(M, M, deg(-51.63));             // 이전 보고서의 궤도 경사
+  M = M4.rotateZ(M, M, deg(100 * t));            // 이전 보고서와 같은 관찰용 공전 속도
   M = M4.translate(M, M, [1.063, 0, 0]);         // 지구 반지름 + 고도
-  M = M4.rotateZ(M, M, deg(180));                // 로컬 +X를 지구 쪽으로
-  M = M4.scale(M, M, [0.00000534, 0.00000534, 0.00000534]); // 실제 길이 비율
+  M = M4.scale(M, M, [100/6371, 100/6371, 100/6371]); // 이전 보고서의 100 km 모형 스케일
+  M = M4.rotateY(M, M, deg(90));                 // 패널 방향
   return M;
 }
 
@@ -94,7 +97,7 @@ const OBJECTS = [
 
 /* 시간이 흐르는 속도와 되돌아가는 지점 (실습 도구와 같은 규칙) */
 const T_SPEED = 0.5; // 시뮬레이션 시간(시간) / 실제 초
-const T_MAX = 20;
+const T_MAX = 360 / 100; // 한 바퀴와 정확히 맞춰 되감기
 
 /* ══════════════════════════════════════════════════════════════════════════
    2. 4x4 행렬 계산
@@ -377,7 +380,7 @@ cv.addEventListener('pointerup', endDrag);
 cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('wheel', e => {
   e.preventDefault();
-  cam.dist = Math.max(0.5, Math.min(200, cam.dist * Math.exp(e.deltaY * 0.001)));
+  cam.dist = Math.max(5, Math.min(200, cam.dist * Math.exp(e.deltaY * 0.001)));
 }, { passive: false });
 
 /* z 축이 위인 좌표계입니다 (실습 도구와 같습니다) */
@@ -444,7 +447,7 @@ function frame(now) {
     if (o.shape === 'satellite') {
       gl.bindVertexArray(MESH.satBody.vao);
       gl.drawElements(gl.TRIANGLES, MESH.satBody.count, gl.UNSIGNED_SHORT, 0);
-      gl.uniform3f(U.uColor, 0.28, 0.36, 0.62);
+      gl.uniform3f(U.uColor, 0.38, 0.70, 1.00);
       gl.bindVertexArray(MESH.satPanel.vao);
       gl.drawElements(gl.TRIANGLES, MESH.satPanel.count, gl.UNSIGNED_SHORT, 0);
     } else {
